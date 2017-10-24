@@ -1,19 +1,26 @@
 #include "SensorProtocol.h"
 #include "../BitsCode/BitsCode.h"
 
-Timer transmitTimer(100);
+Timer transmitTimer(1);
+Timer testTimer(1000);
 
 SensorProtocol::SensorProtocol(){
   sendPinPositive = 5;
   sendPinNegative = 6;
-  receivePinPositive = A1;
-  receivePinNegative = A0;
-  inputThreshhold = (1024 / 2);
+  receivePinPositive = A0;
+  receivePinNegative = A1;
+  inputThreshhold = (512);
 
   sentBit = false;
-  transmitBufferHead, transmitBufferTail = 0;
-  receiveBufferHead, receiveBufferTail = 0;
+  transmitBufferHead = 0;
+  transmitBufferTail = 0;
+  receiveBufferHead = 0;
+  receiveBufferTail = 0;
   receivedSpace = true;
+}
+
+int SensorProtocol::Mod(int a, int b){
+  return a >= 0 ? a % b : ((b - abs(a % b)) % b);
 }
 
 //Setup for the protocol
@@ -27,26 +34,50 @@ void SensorProtocol::Setup(){
 }
 
 void SensorProtocol::TestCodeHere(){
+  int variable = 9;
 
+  Serial.print(" Buffers: ");
+  Serial.print(receiveBufferHead);
+  Serial.print(" | ");
+  Serial.print(receiveBufferTail);
+  Serial.print(" | ");
+  Serial.print("Send Buffer: ");
+  Serial.print(transmitBufferHead);
+  Serial.print(" | ");
+  Serial.print(transmitBufferTail);
+  Serial.print(" | ");
+  Serial.print(floor((receiveBufferTail - receiveBufferHead) / 8));
+  Serial.println();
 }
 
 //We need to store data to transmit
-void Send(){
-
+void SensorProtocol::Send(byte *byteArray, int arraySize){
+  //Go through the bytes and stores them for transmission
+  for(int i = 0;i < arraySize;i++){
+    //We need to go through the individual bits
+    for(int bit = 0;bit < 8;bit++){
+      transmitBitBuffer[transmitBufferTail] = bitRead(byteArray[i], bit);
+      transmitBufferTail++;
+    }
+  }
 }
 
 
 //This will handle all of our transmitting and receiving
 void SensorProtocol::TransmitAndReceive(){
-  Receive();
   Transmit();
+  Receive();
+
+  if(testTimer.OverTime()){
+    testTimer.Reset();
+  }
 
   return;
 }
 
 void SensorProtocol::Transmit(){
   //Check if the head and tail are equal, if so do not continue
-  if(transmitBufferHead == transmitBufferTail || transmitTimer.OverTime()){
+  if(transmitBufferHead == transmitBufferTail || (!transmitTimer.OverTime())){
     return;
   }
   //We need to reset our Timer
@@ -59,14 +90,17 @@ void SensorProtocol::Transmit(){
     return;
   //We need to get the bit at the counter and send it
   //But first we need to see if it is on or off
-  }else if(transmitBitBuffer[transmitBufferHead % 64] == 0){
+}else if(transmitBitBuffer[Mod(transmitBufferHead, bufferSize)] == 0){
     LowBitPulse();
-  }else if(transmitBitBuffer[transmitBufferHead % 64] == 1){
+    sentBit = true;
+    transmitBufferHead++;
+      Serial.print(" T+ ");
+  }else if(transmitBitBuffer[Mod(transmitBufferHead, bufferSize)] == 1){
     HighBitPulse();
+    sentBit = true;
+    transmitBufferHead++;
+      Serial.print(" T+ ");
   }
-
-  sentBit = true;
-  transmitBufferHead++;
 }
 
 void SensorProtocol::Receive(){
@@ -75,15 +109,20 @@ void SensorProtocol::Receive(){
 
   int bitType = GetPulseType(posPinValue, negPinValue);
 
-  if(bitType == BitsCode::Code::Space){
+  if(bitType == BitsCode::Code::Space && !receivedSpace){
     receivedSpace = true;
+//    Serial.println("R Space");
     return;
-  }else if(bitType == BitsCode::Code::On && receivedSpace == true){
-    receiveBitBuffer[receiveBufferTail % 64] = 1;
+  }else if(bitType == BitsCode::Code::On && receivedSpace){
+    receiveBitBuffer[Mod(receiveBufferTail, bufferSize)] = 1;
     receiveBufferTail++;
-  }else if(bitType == BitsCode::Code::Off && receivedSpace == true){
-    receiveBitBuffer[receiveBufferTail % 64] = 0;
+//    Serial.println("R1");
+    receivedSpace = false;
+  }else if(bitType == BitsCode::Code::Off && receivedSpace){
+    receiveBitBuffer[Mod(receiveBufferTail, bufferSize)] = 0;
     receiveBufferTail++;
+//  Serial.println("R0");
+    receivedSpace = false;
   }
 }
 
@@ -99,7 +138,8 @@ byte SensorProtocol::ReadByte(){
   //Go through the 8 bits and write them to the byte
   for(int i = 0;i < 8;i++){
     //Increment our buffer head as we read it to the bytes
-    bitWrite(newByte, i, receiveBitBuffer[receiveBufferHead++]);
+    bitWrite(newByte, i, receiveBitBuffer[Mod(receiveBufferHead, bufferSize)]);
+    receiveBufferHead++;
   }
 
   //There are no bytes left to return
@@ -113,15 +153,17 @@ int SensorProtocol::BytesToRead(){
 
 void SensorProtocol::SendPulse(int settingOne, int settingTwo){
   //We need to write to both the positive and negative pins
-  analogWrite(sendPinPositive, settingOne);
-  analogWrite(sendPinNegative, settingTwo);
+  digitalWrite(sendPinPositive, settingOne);
+  digitalWrite(sendPinNegative, settingTwo);
 }
 
 void SensorProtocol::LowBitPulse(){
+//  Serial.println("S0");
   SendPulse(LOW, HIGH);
 }
 
 void SensorProtocol::HighBitPulse(){
+//  Serial.println("S1");
   SendPulse(HIGH, LOW);
 }
 
@@ -130,6 +172,7 @@ void SensorProtocol::StartPulse(){
 }
 
 void SensorProtocol::SpacePulse(){
+//  Serial.println("Space");
   SendPulse(LOW, LOW);
 }
 

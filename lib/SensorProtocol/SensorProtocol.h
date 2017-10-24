@@ -8,12 +8,13 @@ public:
   SensorProtocol();
   void Setup();
   void TransmitAndReceive();
-  void Send();
+  void Send(byte *byteArray, int arraySize);
   byte ReadByte();
   int BytesToRead();
+  void TestCodeHere();
 protected:
 private:
-  void TestCodeHere();
+  int bufferSize = 64;
 
   //Private variables
   int sendPinPositive;
@@ -42,6 +43,7 @@ private:
   void StartPulse();
   void SpacePulse();
   int GetPulseType(int posPulse, int negPulse);
+  int Mod(int a, int b);
 };
 
 #endif
