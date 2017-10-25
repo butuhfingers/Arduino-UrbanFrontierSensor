@@ -2,7 +2,6 @@
 #include "../BitsCode/BitsCode.h"
 
 Timer transmitTimer(1);
-Timer testTimer(1000);
 
 SensorProtocol::SensorProtocol(){
   sendPinPositive = 5;
@@ -57,7 +56,7 @@ void SensorProtocol::Send(byte *byteArray, int arraySize){
     //We need to go through the individual bits
     for(int bit = 0;bit < 8;bit++){
       transmitBitBuffer[transmitBufferTail] = bitRead(byteArray[i], bit);
-      transmitBufferTail++;
+      transmitBufferTail = Mod(transmitBufferTail + 1, bufferSize);
     }
   }
 }
@@ -67,10 +66,6 @@ void SensorProtocol::Send(byte *byteArray, int arraySize){
 void SensorProtocol::TransmitAndReceive(){
   Transmit();
   Receive();
-
-  if(testTimer.OverTime()){
-    testTimer.Reset();
-  }
 
   return;
 }
@@ -90,16 +85,16 @@ void SensorProtocol::Transmit(){
     return;
   //We need to get the bit at the counter and send it
   //But first we need to see if it is on or off
-}else if(transmitBitBuffer[Mod(transmitBufferHead, bufferSize)] == 0){
+}else if(transmitBitBuffer[transmitBufferHead] == 0){
     LowBitPulse();
     sentBit = true;
-    transmitBufferHead++;
-      Serial.print(" T+ ");
-  }else if(transmitBitBuffer[Mod(transmitBufferHead, bufferSize)] == 1){
+    transmitBufferHead = Mod((transmitBufferHead + 1), bufferSize);
+      // Serial.print(" T+ ");
+  }else if(transmitBitBuffer[transmitBufferHead] == 1){
     HighBitPulse();
     sentBit = true;
-    transmitBufferHead++;
-      Serial.print(" T+ ");
+    transmitBufferHead = Mod((transmitBufferHead + 1), bufferSize);
+      // Serial.print(" T+ ");
   }
 }
 

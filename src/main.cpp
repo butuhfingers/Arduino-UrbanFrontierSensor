@@ -4,8 +4,8 @@
 #include "../lib/Timer/Timer.h"
 
 SensorProtocol protocol;
-Timer newTimer(1000);
-byte fooBar[1];
+Timer newTimer(100);
+byte fooBar[3];
 int count = 1;
 
 void setup() {
@@ -19,12 +19,16 @@ void setup() {
 void loop() {
   //Create a random number every second
   if(newTimer.OverTime()){
-    fooBar[0] = rand() % 254;
-    protocol.Send(fooBar, 1);
+    for(int i = 0;i < 3;i++){
+      fooBar[i] = rand() % 254;
+    }
+    protocol.Send(fooBar, 3);
     Serial.print("Count: ");
     Serial.println(count++);
     Serial.print("Sending: ");
-    Serial.println(fooBar[0], DEC);
+    for(int i = 0;i < 3;i++){
+      Serial.println(fooBar[i], DEC);
+    }
     newTimer.Reset();
   }
 
@@ -32,7 +36,7 @@ void loop() {
   if(protocol.BytesToRead() > 0){
     // Serial.print("Bytes to REad: ");
     // Serial.println(protocol.BytesToRead());
-    protocol.TestCodeHere();
+    // protocol.TestCodeHere();
     Serial.print("Receiving: ");
     Serial.println(protocol.ReadByte(), DEC);
     Serial.println();
