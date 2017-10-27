@@ -28,8 +28,6 @@ void SensorProtocol::Setup(){
   pinMode(sendPinNegative, OUTPUT);
   pinMode(receivePinPositive, INPUT);
   pinMode(receivePinNegative, INPUT);
-
-  TestCodeHere();
 }
 
 void SensorProtocol::TestCodeHere(){
